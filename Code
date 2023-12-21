@@ -1,0 +1,153 @@
+
+user_input=True
+while user_input:
+    inf=input("Please enter the file name: ")
+    #Read file
+    f=open(inf, 'r')
+    #import pandas and numpy
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    from statsmodels.stats.multicomp import pairwise_tukeyhsd
+    from statannotations.Annotator import Annotator
+    
+    
+    data=pd.read_csv(f, sep=',')
+    print("Make sure that treatment header, and column you want to test exactly matches what you have in your csv file."+ "\n"+ "Be sensitive about upper/lowercase and spaces as well.")
+    print("For apoptosis, if the data has % sign on it then please remove the % sign and you can multiply the numbers by 100 to get the actual percentage before saving it as a csv file. ")
+    Treatment_groups=input("Please enter the column header name in your csv file for treatments (e.g control, drug-treated etc) such as 'Treatment' : ")
+    title_plot=input("Please enter the title for the image :  ")
+    
+    xlabel_plot=input("Please enter the x label for the images: ")
+    ylabel_plot=input("Please enter the y label for the images: ")
+    data_reset_index=data.set_index(Treatment_groups)
+    data_reset_index_melt=data_reset_index.melt(ignore_index = False, var_name="variable", value_name="value")
+    
+    
+                
+                
+    
+    def grouped_barplot_without_statistics(df, title_barplot, x_label, y_label):
+        sns_barplot_mean_survival=sns.barplot(data=df, x=df.index, y="value", hue="variable", ci="sd", edgecolor="white", capsize=0.1, errcolor = 'black', errwidth=0.8 )
+        plt.legend(title='')
+        plt.yticks([0,10,20,30,40,50,60,70,80,90,100])
+        plt.title(title_barplot)
+        plt.xticks(rotation=90)
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        
+        return plt.show()
+
+
+        
+
+    
+    def barplot_without_statistics(df, col_name,title_plot,ylabel_plot,xlabel_plot):
+        mean_apoptosis=df.groupby(by=Treatment_groups, sort=False).agg(mean=(col_name, "mean"))
+        x=Treatment_groups
+        y=col_name
+        Treatment_headers=(mean_apoptosis.index).tolist()
+        ax=sns.barplot(data=df, x=x, y=y, order=Treatment_headers, ci="sd", capsize=0.1, hue=(x), dodge=False)
+        ax.get_legend().set_visible(False)
+        plt.xticks(rotation=-90)
+        plt.yticks([0,10,20,30,40,50,60,70,80,90,100])
+        plt.title(title_plot + ' '+ '('+(col_name)+')')
+        plt.ylabel(ylabel_plot + ' ' +'('+ (col_name)+')')
+        plt.xlabel(xlabel_plot)
+        plt.show()
+        
+        return plt.show()
+
+
+    
+    
+    def barplot_with_statistics(df, col_name,title_plot,ylabel_plot,xlabel_plot, alpha_cutoff):
+        mean_apoptosis=df.groupby(by=Treatment_groups, sort=False).agg(mean=(col_name, "mean"))
+        x=Treatment_groups
+        y=col_name
+        Treatment_headers=(mean_apoptosis.index).tolist()
+        tukey=pairwise_tukeyhsd(endog=df[col_name], groups=df[Treatment_groups], alpha=alpha_cutoff)
+        results_tukey=tukey.summary()
+        tukey_dataframe=pd.DataFrame(data=results_tukey.data[1:],columns=results_tukey.data[0])
+        significant_tukey=tukey_dataframe[tukey_dataframe["p-adj"]<=0.05]
+        significant_tukey_pairs=significant_tukey[['group1','group2']].apply(tuple,axis=1).tolist()
+        p_values_tukey=[]
+        for p_values in significant_tukey["p-adj"]:
+            if p_values<=0.05:
+                p_values_tukey.append(p_values)
+        ax=sns.barplot(data=df, x=x, y=y, order=Treatment_headers, ci="sd", capsize=0.1, hue=(x), dodge=False)
+        ax.get_legend().set_visible(False)
+        plt.xticks(rotation=90)
+        plt.title(title_plot + ' '+'('+(col_name)+')')
+        plt.ylabel(ylabel_plot + ' ' + '('+(col_name)+')')
+        plt.xlabel(xlabel_plot)
+        annotator=Annotator(ax, significant_tukey_pairs, data=df, x=x, y=y, order= Treatment_headers)
+        annotator.configure(text_format="star", loc="inside")
+        annotator.set_pvalues_and_annotate(p_values_tukey)
+        plt.show()
+        return plt.show()
+    
+    
+    
+    print("You can generate different types of graphs;" + "\n" + "1. grouped barplot with all apoptosis result in one graph" + "\n" + "2. separate barplot for each type of apoptosis" + "\n" + "3. separate barplot with statistical analysis.")
+    
+
+
+
+    barplot_type=input("Please type 1, 2, 3, 4 or 5 based on the type of graph you want. The number represent: " + "\n" + "1. grouped" + "\n" + "2. seperate graph for each apoptosis" + "\n" + "3. separate graphs with statistics" + "\n" + "4. grouped and separate graphs without statistics" + "\n" + "5. all types of graphs"+ "\n" + "You need to have atleast 3 replicates for statistical analysis."+ "\n" + "Please type your number here: ")
+    if barplot_type=='1':
+        grouped_barplot=grouped_barplot_without_statistics(data_reset_index_melt,title_plot, xlabel_plot, ylabel_plot)
+        print("Errorbars for standard deviation")
+    elif barplot_type=='2':
+        col_name1=input("Please enter the column header for what you want to test e.g Total apoptosis: ")
+        col_name2=input("Please enter the column header for what you want to test e.g Late apoptosis: ")
+        col_name3=input("Please enter the column header for what you want to test e.g Early apoptosis: ")   
+        barplot_col_name1=barplot_without_statistics(data, col_name1, title_plot, ylabel_plot, xlabel_plot)
+        barplot_col_name2=barplot_without_statistics(data,col_name2, title_plot, ylabel_plot, xlabel_plot)
+        barplot_col_name3=barplot_without_statistics(data,col_name3, title_plot, ylabel_plot, xlabel_plot)
+        print("Errorbars for standard deviation")
+    elif barplot_type=='3':
+        col_name1=input("Please enter the column header for what you want to test e.g Total apoptosis: ")
+        col_name2=input("Please enter the column header for what you want to test e.g Late apoptosis: ")
+        col_name3=input("Please enter the column header for what you want to test e.g Early apoptosis: ")       
+              
+        barplot_with_statistics_col_name1=barplot_with_statistics(data, col_name1, title_plot, ylabel_plot, xlabel_plot, 0.05)
+        barplot_with_statistics_col_name2=barplot_with_statistics(data,col_name2, title_plot, ylabel_plot, xlabel_plot, 0.05)
+        barplot_with_statistics_col_name3=barplot_with_statistics(data,col_name3, title_plot, ylabel_plot, xlabel_plot,0.05)
+        print ("Errorbars for standard deviation.")
+        print("Statistical testing based on tukey hsd results comparing mean percentages of each phase between groups (Treatments)")
+    elif barplot_type=='4':
+        grouped_barplot=grouped_barplot_without_statistics(data_reset_index_melt,title_plot, xlabel_plot, ylabel_plot)
+        col_name1=input("Please enter the column header for what you want to test e.g Total apoptosis: ")
+        col_name2=input("Please enter the column header for what you want to test e.g Late apoptosis: ")
+        col_name3=input("Please enter the column header for what you want to test e.g Early apoptosis: ")   
+        barplot_col_name1=barplot_without_statistics(data, col_name1, title_plot, ylabel_plot, xlabel_plot)
+        barplot_col_name2=barplot_without_statistics(data,col_name2, title_plot, ylabel_plot, xlabel_plot)
+        barplot_col_name3=barplot_without_statistics(data,col_name3, title_plot, ylabel_plot, xlabel_plot)
+        print ("Errorbars for standard deviation.")
+    elif barplot_type=='5':
+        grouped_barplot=grouped_barplot_without_statistics(data_reset_index_melt,title_plot, xlabel_plot, ylabel_plot)
+        col_name1=input("Please enter the column header for what you want to test e.g Total apoptosis: ")
+        col_name2=input("Please enter the column header for what you want to test e.g Late apoptosis: ")
+        col_name3=input("Please enter the column header for what you want to test e.g Early apoptosis: ")   
+        barplot_col_name1=barplot_without_statistics(data, col_name1, title_plot, ylabel_plot, xlabel_plot)
+        barplot_col_name2=barplot_without_statistics(data,col_name2, title_plot, ylabel_plot, xlabel_plot)
+        barplot_col_name3=barplot_without_statistics(data,col_name3, title_plot, ylabel_plot, xlabel_plot)
+        barplot_with_statistics_col_name1=barplot_with_statistics(data, col_name1, title_plot, ylabel_plot, xlabel_plot, 0.05)
+        barplot_with_statistics_col_name2=barplot_with_statistics(data,col_name2, title_plot, ylabel_plot, xlabel_plot, 0.05)
+        barplot_with_statistics_col_name3=barplot_with_statistics(data,col_name3, title_plot, ylabel_plot, xlabel_plot,0.05)
+        print ("Errorbars for standard deviation.")
+        print("Statistical testing based on tukey hsd results comparing mean percentages of each phase between groups (Treatments)")
+    else:
+        print('None')
+
+        
+    
+    
+    continue_input=input("Type 'y' if you want to analyze next set of data if not type any other key: ")
+    if continue_input=='y':
+        user_input=True
+    else:
+        user_input=False
+    f.close()
+    
